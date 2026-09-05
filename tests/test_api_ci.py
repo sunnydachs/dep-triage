@@ -39,3 +39,13 @@ def test_pending_with_statuses_is_real_pending():
                       {"state": "pending", "statuses": [{"state": "pending"}]})
     assert r["ci_pending"] is True
     assert r["ci_none"] is False
+
+
+def test_double_count_is_resolved_by_set_semantics():
+    """同じチェックが check-runs と combined status の両方に出ても
+    ci_none 判定は壊れない（issue #4）。"""
+    r = _aggregate_ci(
+        {"check_runs": [_run(), _run()]},
+        {"state": "success", "statuses": [{"state": "success"}, {"state": "success"}]},
+    )
+    assert r == {"ci_green": True, "ci_pending": False, "ci_none": False}
