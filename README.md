@@ -2,9 +2,11 @@
 
 **Triage Dependabot PRs after CI runs, per project policy. Dry-run by default.**
 
-> ProblemForge の悩み発見パイプラインが発見した [Solution #196](https://github.com/cpheinrich/morpheus/issues/196)
-> （"Projects lack a reusable and secure workflow to automatically triage and reconcile
-> Dependabot pull requests after CI runs"）の実装プロトタイプです。
+> **出自 / Provenance**: このツールの着想は、[cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196)
+> で公開されていた課題 — *"Projects lack a reusable and secure workflow to automatically
+> triage and reconcile Dependabot pull requests after CI runs"* — から得ました。
+> 元リポジトリとは無関係な独立した実装であり（元リポジトリのコードは参照していません）、
+> 同じ課題を抱えたプロジェクトで再利用できる汎用 CLI として書き下ろしたものです。
 
 Dependabot の PR は CI が終わっても「マージしていいのか」を人間が1件ずつ確認する作業が残る。
 dep-triage は、プロジェクトごとの明示的なポリシーに従って、CI 完了後の Dependabot PR を
