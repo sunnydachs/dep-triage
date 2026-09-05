@@ -2,98 +2,139 @@
 
 **Triage Dependabot PRs after CI runs, per project policy. Dry-run by default.**
 
-> **出自 / Provenance**: このツールの着想は、[cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196)
-> で公開されていた課題 — *"Projects lack a reusable and secure workflow to automatically
-> triage and reconcile Dependabot pull requests after CI runs"* — から得ました。
-> 元リポジトリとは無関係な独立した実装であり（元リポジトリのコードは参照していません）、
-> 同じ課題を抱えたプロジェクトで再利用できる汎用 CLI として書き下ろしたものです。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen.svg)](tests/)
 
-Dependabot の PR は CI が終わっても「マージしていいのか」を人間が1件ずつ確認する作業が残る。
-dep-triage は、プロジェクトごとの明示的なポリシーに従って、CI 完了後の Dependabot PR を
-機械的に仕分けする CLI です。
+English | [日本語](README.ja.md)
 
-## 何をするか
+<!-- Sync with README.ja.md as of commit e5d3ead (see git log for the latest sync point) -->
 
-1. オープンな Dependabot PR を収集する
-2. 各 PR の事実を機械的に判定する:
-   - **依存のみスコープ**: 変更ファイルが全てマニフェスト / ロックファイルか
-     （`package.json`、`Cargo.lock`、`requirements*.txt` 等。1つでもコードが混ざれば対象外）
-   - **CI 状態**: check-runs + combined status を集約（CI 無しは「無し」として区別）
-   - **semver 水準**: タイトルから major / minor / patch を解析（推測しない。解釈不能は unknown）
-   - **superseded**: 同一パッケージのより新しいバージョン PR が既に無いか
-   - **コンフリクト / 老朽化**
-3. ポリシーに従って仕分ける:
-   - 🟢 **auto-merge**: patch/minor + CI 緑 + 依存のみ + コンフリクト無し
-   - 🔔 **escalate**: major / CI 失敗 / コンフリクト（人間確認。変更はしない）
-   - 🗑 **close**: 同一パッケージの新バージョン PR に追い越されたもの
-   - 💬 **rebase 提案**: 老朽化した PR
-   - ⏭ **skip**: CI 実行中 / 依存以外の変更を含む
+`dep-triage` sorts open Dependabot PRs into five buckets, according to a policy file you check into your repository:
 
-## 使い方
+- 🟢 **auto-merge** — patch/minor bumps with green CI, dependency-only changes, no conflicts
+- 🔔 **escalate** — major bumps, failed CI, conflicts (reported, never changed)
+- 🗑️ **close** — PRs superseded by a newer-version PR for the same package
+- 💬 **rebase suggestion** — stale PRs (`@dependabot rebase`)
+- ⏭️ **skip** — CI still running, or the PR touches non-dependency files
+
+All decisions are **deterministic** — no LLM in the loop. Policy plus machine-checked facts only.
+
+## Why
+
+Dependabot opens the PRs, CI runs — and then a human still has to decide, one by one, which of them are safe to merge. dep-triage applies your project's explicit policy to that moment, so the routine cases are handled and only the judgment calls reach you.
+
+## Install
 
 ```bash
-# dry-run（既定）。変更は一切しない。計画だけ表示する
+pip install git+https://github.com/sunnydachs/dep-triage.git
+```
+
+Or from a clone:
+
+```bash
+git clone https://github.com/sunnydachs/dep-triage.git
+cd dep-triage
+pip install .
+```
+
+Authentication: set `GITHUB_TOKEN` / `GH_TOKEN`. Public repos work unauthenticated, but GitHub's rate limit is then 60 requests/hour and one scan uses ~35.
+
+## Quick start
+
+```bash
+# Dry-run (default): print the plan, change nothing
 dep-triage --repo owner/name
 
-# 実際に適用する（auto-merge 有効化 / close / コメント。write 権限の token が必要）
+# Perform actions (enabling auto-merge, closing superseded PRs, commenting).
+# Requires a token with write access.
 dep-triage --repo owner/name --apply
 
-# ポリシーファイルを指定
+# Use a policy file, machine-readable output
 dep-triage --repo owner/name --policy dep-triage.toml --json
 ```
 
-認証: `GITHUB_TOKEN` / `GH_TOKEN` 環境変数（無認証でも公開リポジトリは動作するが
-レート制限 60 req/h）。
+Example output:
 
-## ポリシー（dep-triage.toml）
-
-```toml
-auto_merge_bumps = ["patch", "minor"]  # 自動マージを許す水準
-never_auto_merge_bumps = ["major"]     # 絶対に自動マージしない水準（常に優先）
-require_ci_green = true                # CI 緑を要求
-require_dependency_only = true         # 依存ファイルのみの変更を要求
-close_superseded = true                # 追い越された PR を close
-rebase_stale_days = 7                  # 老朽 PR への @dependabot rebase 提案
-merge_method = "squash"
+```
+dep-triage — DRY-RUN PLAN (no changes)
+  #16     🟢 auto-merge
+          chore(deps): bump react-router from 8.3.0 to 8.3.1
+          reasons: patch bump, policy conditions met
+  #19     🔔 escalate
+          chore(deps): bump @nestjs/core from 11.2.1 to 12.0.1
+          reasons: major bump is never auto-merged
+summary: {"auto_merge": 6, "comment_rebase": 1, "escalate": 4}
 ```
 
-例は `policy.example.toml`。未知のキーはエラーになる（typo 防止）。
+## Policy (`dep-triage.toml`)
 
-## 安全モデル
+Copy [`policy.example.toml`](policy.example.toml) to your repository root. Every key is optional; unknown keys are rejected (typo protection).
 
-- **dry-run が既定**。`--apply` を明示したときだけ変更する
-- **アクション直前の再検証**: auto-merge 有効化の直前に、ヘッド SHA / CI 状態 /
-  変更ファイルスコープを再取得し、収集時から変わっていれば断念する（TOCTOU 対策）
-- **major は決して自動マージしない**（ポリシーで never 側に置いた水準は auto 側に書いても無効）
-- **write 権限は --apply 時のみ要求**。dry-run は read だけで完結する
-- **判断は決定的**: LLM を使わない。ポリシー + 機械的事実のみで判定が再現する
+| Key | Default | Meaning |
+|---|---|---|
+| `auto_merge_bumps` | `["patch", "minor"]` | Semver levels eligible for auto-merge |
+| `never_auto_merge_bumps` | `["major"]` | Levels that are never auto-merged (always wins) |
+| `require_ci_green` | `true` | Require green CI |
+| `require_dependency_only` | `true` | Require every changed file to be a manifest/lockfile |
+| `close_superseded` | `true` | Close PRs outrun by a newer-version PR of the same package |
+| `rebase_stale_days` | `7` | Suggest `@dependabot rebase` for PRs open this long |
+| `merge_method` | `"squash"` | `merge` \| `squash` \| `rebase` |
 
-## 設計の由来（元 issue からの要件対応）
+## How decisions are made
 
-| 元 issue の要件 | dep-triage の実装 |
+Facts are machine-checked per PR (changed-file scope, CI state via check-runs + combined status, semver level parsed from the title, supersession, conflicts, age). The first matching rule wins:
+
+| # | Condition | Action |
+|---|---|---|
+| 1 | A newer-version PR for the same package exists | close_superseded |
+| 2 | Contains non-dependency files | skip |
+| 3 | Merge conflicts with base branch | escalate |
+| 4 | CI still running | skip |
+| 5 | CI not green | escalate |
+| 6 | Bump level is in `never_auto_merge_bumps` | escalate |
+| 7 | Bump level not in `auto_merge_bumps` | escalate — or rebase suggestion if stale |
+| 8 | All conditions met | auto_merge |
+
+Unparseable titles (no "Bump X from A to B" / "Update X requirement" pattern) are treated as `unknown` and escalated — never guessed.
+
+## Safety model
+
+- **Dry-run is the default.** Nothing changes unless you pass `--apply`
+- **Revalidation immediately before merge**: head SHA, CI state, and changed-file scope are re-fetched right before enabling auto-merge; if anything moved since triage, the action is aborted (TOCTOU protection)
+- **Majors are never auto-merged**, regardless of policy
+- **Write access is only needed for `--apply`**; dry-run works read-only
+- **No CI on the repo?** That state (`ci_none`) is reported explicitly in the reasons — it is not treated as "CI running"
+
+## Design provenance
+
+The idea comes from a real pain reported in [cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196). Its requirements map to the implementation as follows:
+
+| Requirement in the issue | Where it lives |
 |---|---|
-| "every changed file is a dependency manifest or lockfile" | `scope.py` の機械的スコープ判定 |
-| "Revalidate author, head SHA, changed-file scope, and CI state immediately before" | `triage.apply()` の直前再検証（TOCTOU 対策） |
-| "applies explicit project policy first" | `policy.py` — TOML ポリシーが全判定の上位規則 |
-| "deliver decisions without exposing the model credential" | LLM を使わない決定的判定（将来の ambiguous 判定は read-only で分離可能な構造） |
+| "Recognize Dependabot PRs only when every changed file is a dependency manifest or lockfile" | `scope.py` — mechanical scope check |
+| "Revalidate author, head SHA, changed-file scope, and CI state immediately before enabling auto-merge" | `triage.apply()` — TOCTOU protection |
+| "applies explicit project policy first" | `policy.py` — TOML policy is the top rule |
+| "deliver decisions without exposing the model credential" | Deterministic decisions, no LLM |
 
-## 既知の限界（MVP）
+## Known limitations (MVP)
 
-- パッケージエコシステムごとのセキュリティアドバイザリ照合は未実装（major 抑止は
-  semver ベースのみ）
-- auto-merge は GitHub の auto-merge 機能（branch protection の要件を満たした時点で
-  GitHub 側がマージ）を有効化する。branch protection 無しのリポジトリでは
-  CI 緑の直後にマージされるため、`require_ci_green` と併用の上、ブランチ保護を推奨
-- タイトル形式が "Bump X from A to B" でない PR は水準 unknown（保守側に escalate）
-- CI 無しのリポジトリでは「待つものが無い」ため patch/minor が auto-merge 候補に
-  なる。それを避けたい場合は `auto_merge_bumps = []` にして escalate のみにする
+- Security-advisory matching per ecosystem is not implemented (major-risk gating is semver-based only)
+- Auto-merge enables GitHub's native auto-merge: it merges once branch protection requirements pass. On repos without branch protection, dependency-only patch/minor PRs merge as soon as CI is green — use branch protection together with this tool
+- Titles not in the "Bump X from A to B" format are escalated as `unknown`
+- On repos with no CI, patch/minor PRs become auto-merge candidates (nothing to wait for). Set `auto_merge_bumps = []` if you want escalation-only behavior
 
-## 開発
+## Development
 
 ```bash
-python -m pytest tests/ -q   # オフラインで完結するテスト一式
+pip install -e ".[dev]"
+python -m pytest tests/ -q   # 47 tests, fully offline
 ```
 
-## ライセンス
+## Provenance & acknowledgment
 
-MIT
+This tool was inspired by a pain publicly described in [cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196) — *"Projects lack a reusable and secure workflow to automatically triage and reconcile Dependabot pull requests after CI runs."* This repository is an independent implementation (the source repository's code was not consulted), written as a general-purpose CLI for any project facing the same problem. Thanks to [@cpheinrich](https://github.com/cpheinrich) for articulating it.
+
+## License
+
+[MIT](LICENSE)
