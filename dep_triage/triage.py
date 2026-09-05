@@ -64,15 +64,18 @@ def collect_facts(prs: list, api, policy: dict, now: datetime = None) -> list:
         paths = api.pr_files(pr["base"]["repo"]["full_name"], pr["number"])
         sc = scope_mod.scope_check(paths)
         ci = api.ci_state(pr["base"]["repo"]["full_name"], pr["head"]["sha"])
+        ms = pr.get("mergeable_state")
         facts = {
             "dependency_only": sc["dependency_only"],
             "offending_files": sc["offending"][:5],
             "bump": item["info"]["bump"],
             "package": item["info"]["package"],
+            "grouped": item["info"].get("grouped", False),
             "ci_green": ci["ci_green"],
             "ci_pending": ci["ci_pending"],
             "ci_none": ci.get("ci_none", False),
-            "conflicting": pr.get("mergeable_state") == "dirty",
+            "conflicting": ms == "dirty",
+            "merge_state_pending": ms in (None, "", "unknown"),
             "superseded_by": item["superseded_by"],
             "stale_days": _stale_days(pr, now),
             "head_sha": pr["head"]["sha"],
