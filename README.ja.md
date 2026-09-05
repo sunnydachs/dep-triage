@@ -106,16 +106,16 @@ summary: {"auto_merge": 6, "comment_rebase": 1, "escalate": 4}
 - **write 権限が要るのは `--apply` のときだけ**。dry-run は read のみで完結します
 - **CI が無いリポジトリでは**、その状態（`ci_none`）を理由として明示します。「CI 実行中」とは区別します
 
-## 設計の出典
+## 設計の動機
 
-着想は [cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196) で報告されていた実際の悩みから得ました。issue の要件と実装の対応:
+このツールの要件は、依存関係を多く抱えるプロジェクトで繰り返し報告されてきたパターンから抽出しました:
 
-| issue の要件 | 実装箇所 |
+| 要件 | 実装箇所 |
 |---|---|
-| "Recognize Dependabot PRs only when every changed file is a dependency manifest or lockfile" | `scope.py` — 機械的スコープ判定 |
-| "Revalidate author, head SHA, changed-file scope, and CI state immediately before enabling auto-merge" | `triage.apply()` — TOCTOU 対策 |
-| "applies explicit project policy first" | `policy.py` — TOML ポリシーが最上位の規則 |
-| "deliver decisions without exposing the model credential" | 決定的判定・LLM 不使用 |
+| 変更ファイルがすべて依存マニフェスト/ロックファイルの PR だけを対象にする | `scope.py` — 機械的スコープ判定 |
+| auto-merge 有効化の直前に head SHA・CI 状態・変更スコープを再検証する | `triage.apply()` — TOCTOU 対策 |
+| プロジェクトのポリシーを最上位の規則にする（挙動をハードコードしない） | `policy.py` — TOML ポリシー |
+| 判定ロジックを write 権限の認証情報から切り離す | 決定的判定・LLM 不使用 |
 
 ## 既知の限界（MVP）
 
@@ -131,9 +131,9 @@ pip install -e ".[dev]"
 python -m pytest tests/ -q   # 47 テスト・完全オフライン
 ```
 
-## 出典と謝辞
+## 出典
 
-このツールは、[cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196) で公開されていた悩み — *"Projects lack a reusable and secure workflow to automatically triage and reconcile Dependabot pull requests after CI runs."* — から着想を得ました。本リポジトリは独立した実装であり（元リポジトリのコードは参照していません）、同じ課題を持つあらゆるプロジェクトで使える汎用 CLI として書き下ろしたものです。課題を明確に言語化してくださった [@cpheinrich](https://github.com/cpheinrich) に感謝します。
+このツールは、依存関係を多く抱えるプロジェクトで繰り返し起こる実在の悩み — Dependabot PR が溜まり、CI が終わっても人間が1件ずつ後処理を迫られるが、再利用可能で安全なポリシーベースの仕組みがない — から着想を得た、独立した汎用実装です。
 
 ## ライセンス
 

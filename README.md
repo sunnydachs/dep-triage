@@ -106,16 +106,16 @@ Unparseable titles (no "Bump X from A to B" / "Update X requirement" pattern) ar
 - **Write access is only needed for `--apply`**; dry-run works read-only
 - **No CI on the repo?** That state (`ci_none`) is reported explicitly in the reasons — it is not treated as "CI running"
 
-## Design provenance
+## Design motivation
 
-The idea comes from a real pain reported in [cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196). Its requirements map to the implementation as follows:
+The requirements that shaped this tool come from patterns repeatedly reported by maintainers of dependency-heavy projects:
 
-| Requirement in the issue | Where it lives |
+| Need | Where it lives |
 |---|---|
-| "Recognize Dependabot PRs only when every changed file is a dependency manifest or lockfile" | `scope.py` — mechanical scope check |
-| "Revalidate author, head SHA, changed-file scope, and CI state immediately before enabling auto-merge" | `triage.apply()` — TOCTOU protection |
-| "applies explicit project policy first" | `policy.py` — TOML policy is the top rule |
-| "deliver decisions without exposing the model credential" | Deterministic decisions, no LLM |
+| Only treat PRs whose changed files are all dependency manifests/lockfiles | `scope.py` — mechanical scope check |
+| Revalidate head SHA, CI state, and changed-file scope immediately before enabling auto-merge | `triage.apply()` — TOCTOU protection |
+| Project policy as the top rule, not hardcoded behavior | `policy.py` — TOML policy |
+| Keep decision logic away from write credentials | Deterministic decisions, no LLM |
 
 ## Known limitations (MVP)
 
@@ -131,9 +131,9 @@ pip install -e ".[dev]"
 python -m pytest tests/ -q   # 47 tests, fully offline
 ```
 
-## Provenance & acknowledgment
+## Origin
 
-This tool was inspired by a pain publicly described in [cpheinrich/morpheus#196](https://github.com/cpheinrich/morpheus/issues/196) — *"Projects lack a reusable and secure workflow to automatically triage and reconcile Dependabot pull requests after CI runs."* This repository is an independent implementation (the source repository's code was not consulted), written as a general-purpose CLI for any project facing the same problem. Thanks to [@cpheinrich](https://github.com/cpheinrich) for articulating it.
+dep-triage was inspired by a real-world pain that recurs across dependency-heavy projects: Dependabot PRs pile up, CI runs, and a human still has to reconcile each one afterwards — with no reusable, secure, policy-first workflow to do it. This tool is an independent, general-purpose implementation for any project facing the same situation.
 
 ## License
 
