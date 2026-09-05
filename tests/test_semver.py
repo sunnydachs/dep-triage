@@ -28,6 +28,32 @@ def test_parse_actions_integer_versions():
     assert r["bump"] == "major"
 
 
+def test_parse_conventional_commit_prefix():
+    """実データ（nishanthkj77/CampusSync-Ai_SIH）で確認された接頭辞付き形式。
+
+    "chore(deps): bump ..." のような conventional-commit 接頭辞と
+    小文字の bump を解釈できること（e2e で全件 unknown になった教訓）。
+    """
+    r = parse_bump("chore(deps): bump @nestjs/core from 11.2.1 to 12.0.1")
+    assert r["package"] == "@nestjs/core"
+    assert r["bump"] == "major"
+    assert parse_bump("chore(deps): bump react-router from 8.3.0 to 8.3.1")["bump"] == "patch"
+    assert parse_bump("chore(deps-dev): bump prisma from 7.9.1 to 7.10.0")["bump"] == "minor"
+    assert parse_bump("build: bump foo from 1.0.0 to 1.0.2")["bump"] == "patch"
+
+
+def test_parse_update_requirement_format():
+    """requirements.txt 用の "Update X requirement from A to B" 形式。
+
+    範囲変更なので semver 水準は unknown（推測しない）だが、
+    パッケージ名は取れる（superseded 判定に使える）。
+    """
+    r = parse_bump("update pytest requirement from <9,>=8.4 to >=8.4,<10")
+    assert r["package"] == "pytest"
+    assert r["bump"] == "unknown"
+    assert r["from"] == "<9,>=8.4"
+
+
 def test_parse_without_from_is_unknown():
     r = parse_bump("Bump foo to 1.2.3")
     assert r["bump"] == "unknown"
