@@ -61,11 +61,22 @@ class GitHub:
             page += 1
         return [p for p in prs if p.get("user", {}).get("login") in DEPENDABOT_LOGINS]
 
-    def pr_files(self, repo: str, number: int) -> list:
-        """変更ファイルのパス一覧。"""
-        files = self.get(f"/repos/{repo}/pulls/{number}/files",
-                         params={"per_page": 100}) or []
-        return [f.get("filename", "") for f in files]
+    def pr_files(self, repo: str, number: int, max_pages: int = 5) -> list:
+        """変更ファイルのパス一覧（ページネーション付き）。
+
+        100件/ページ × max_pages(既定5) = 最大500ファイル。
+        切り詰めは scope 誤判定（依存のみ偽陽性）に繋がるため、
+        無制限ではなく上限を明示して扱う。
+        """
+        files, page = [], 1
+        while page <= max_pages:
+            data = self.get(f"/repos/{repo}/pulls/{number}/files",
+                            params={"per_page": 100, "page": page}) or []
+            files.extend(f.get("filename", "") for f in data)
+            if len(data) < 100:
+                break
+            page += 1
+        return files
 
     def ci_state(self, repo: str, sha: str) -> dict:
         """CI 状態を集約する。
@@ -113,25 +124,26 @@ def _aggregate_ci(check_runs_json: dict, status_json: dict) -> dict:
 
     - 実行中の check-run / status があれば pending
     - 失敗系 conclusion / status があれば failed
-    - 何も存在しない場合は ci_none=True（「CI 無し」を pending と混同しない）
+    - 両エンドポイントに何も無ければ ci_none=True（「CI 無し」を pending と混同しない）
+    - 同じチェックが両方に出ても集合ベースで扱うため二重計上しない
     """
-    pending, failed, n_checks = False, False, 0
-    for run in check_runs_json.get("check_runs", []):
-        n_checks += 1
+    pending, failed = False, False
+    runs = check_runs_json.get("check_runs") or []
+    statuses = status_json.get("statuses") or []
+
+    for run in runs:
         if run.get("status") in ("in_progress", "queued", "waiting", "pending"):
             pending = True
         if run.get("conclusion") in ("failure", "timed_out", "cancelled",
                                      "action_required", "startup_failure", "stale"):
             failed = True
     state = status_json.get("state")
-    statuses = status_json.get("statuses") or []
-    n_checks += len(statuses)
     if state == "pending" and statuses:
         pending = True
     if state == "failure":
         failed = True
 
-    if n_checks == 0:
+    if not runs and not statuses:
         return {"ci_green": True, "ci_pending": False, "ci_none": True}
     return {"ci_green": not pending and not failed, "ci_pending": pending,
             "ci_none": False}

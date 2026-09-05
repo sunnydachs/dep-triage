@@ -149,3 +149,35 @@ def test_collect_facts_policy_file_roundtrip(tmp_path):
     f.write_text('auto_merge_bumps = ["patch"]\nrebase_stale_days = 0\n')
     pol = load_policy(f)
     assert "minor" not in pol["auto_merge_bumps"]
+
+
+def test_merge_state_pending_is_skipped():
+    """mergeable_state が計算中（unknown）の間は skip して待つ（issue #3）。"""
+    pr = _pr(1, "Bump requests from 2.31.0 to 2.31.1")
+    pr["mergeable_state"] = "unknown"
+    api = FakeAPI(files={1: ["requirements.txt"]},
+                  ci={"sha1": {"ci_green": True, "ci_pending": False}})
+    api.head_sha[1] = "sha1"
+    out = triage.collect_facts([pr], api, DEFAULT_POLICY)
+    assert out[0]["facts"]["merge_state_pending"] is True
+    assert out[0]["decision"]["action"] == "skip"
+
+
+def test_pr_files_paginates():
+    """100件/ページをまたぐ diff もページ送りで全件見る（issue #2）。"""
+    from dep_triage.api import GitHub
+
+    g = GitHub(token="test")
+
+    def fake_get(path, params=None):
+        page = (params or {}).get("page", 1)
+        if page == 1:
+            return [{"filename": f"a{i}.txt"} for i in range(100)]
+        if page == 2:
+            return [{"filename": "z-last.json"}]
+        return []
+
+    g.get = fake_get
+    files = g.pr_files("o/r", 1)
+    assert len(files) == 101
+    assert files[-1] == "z-last.json"
