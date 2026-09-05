@@ -1,8 +1,8 @@
-"""dep-triage — Dependabot PR を CI 完了後にポリシーで triage する CLI（Solution #196）。
+"""dep-triage — Dependabot PR を CI 完了後にポリシーで triage する CLI。
 
-由来: ProblemForge Pipeline が発見した悩み github:196
-  "Projects lack a reusable and secure workflow to automatically triage and
-   reconcile Dependabot pull requests after CI runs."
+由来: 依存関係を多く抱えるプロジェクトで繰り返し報告される実在の悩み
+「Dependabot PR が CI を通っても、人間が1件ずつ後処理を迫られる」を解決する
+汎用 CLI（ProblemForge Pipeline による悩み発見パイプラインからの成果物）。
 """
 
 __version__ = "0.1.0"
