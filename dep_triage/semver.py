@@ -1,15 +1,26 @@
 """semver — Dependabot PR タイトルからパッケージ名とアップグレード水準を解析する。
 
-タイトル形式: "Bump <pkg> from <from> to <to>"
+対応するタイトル形式（実データで確認された2形式 + 将来のゆらぎ）:
+  "Bump <pkg> from <from> to <to>"
+  "chore(deps): bump <pkg> from <from> to <to>"   ← conventional-commit 接頭辞付き
+  "Update <pkg> requirement from <from> to <to>"  ← requirements.txt 用（水準は unknown）
   例: "Bump requests from 2.31.0 to 2.32.3"
+      "chore(deps): bump @nestjs/core from 11.2.1 to 12.0.1"
       "Bump actions/checkout from 3 to 4"（actions は単純な整数バージョン）
-from が取れない場合（Dependabot は初回から記載するが、将来形式変更に備え）
-bump は "unknown" にする。推測しない。
+from が取れない形式・一致しないタイトルは bump "unknown" にする。推測しない。
 """
 import re
 
+# conventional-commit 接頭辞（chore(deps): / build: 等）は任意で許容。大小文字を無視。
 _TITLE_RE = re.compile(
-    r"^Bump\s+(?P<pkg>\S+)\s+(?:from\s+(?P<frm>\S+)\s+)?to\s+(?P<to>\S+)"
+    r"^(?:[a-z]+(?:\([^)]*\))?:\s*)?bump\s+"
+    r"(?P<pkg>\S+)\s+(?:from\s+(?P<frm>\S+)\s+)?to\s+(?P<to>\S+)",
+    re.IGNORECASE,
+)
+# requirements.txt 用フォーマット（バージョン範囲の変更で semver 水準は推定できない）
+_REQUIREMENT_RE = re.compile(
+    r"^update\s+(?P<pkg>\S+)\s+requirement\s+from\s+(?P<frm>\S+)\s+to\s+(?P<to>\S+)",
+    re.IGNORECASE,
 )
 
 
@@ -49,8 +60,14 @@ def parse_bump(title: str) -> dict:
 
     返り値: {package, from, to, bump: "major"|"minor"|"patch"|"unknown"}
     """
-    m = _TITLE_RE.match((title or "").strip())
+    t = (title or "").strip()
+    m = _TITLE_RE.match(t)
     if not m:
+        # requirements.txt 用フォーマットは範囲変更なので水準は unknown のまま
+        m2 = _REQUIREMENT_RE.match(t)
+        if m2:
+            return {"package": m2.group("pkg"), "from": m2.group("frm"),
+                    "to": m2.group("to"), "bump": "unknown"}
         return {"package": None, "from": None, "to": None, "bump": "unknown"}
     frm, to = m.group("frm"), m.group("to")
     if frm is None:
