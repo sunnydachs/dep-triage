@@ -95,3 +95,10 @@ def test_stale_unknown_bump_suggests_rebase():
 def test_superseded_wins_over_everything():
     r = decide(_facts(superseded_by=7, bump="major", ci_green=False), DEFAULT_POLICY)
     assert r["action"] == "close_superseded"
+
+
+def test_no_ci_is_transparent_in_reasons():
+    """CI 無しのリポジトリで auto-merge になる場合、その旨が理由に明示される。"""
+    r = decide(_facts(ci_none=True), DEFAULT_POLICY)
+    assert r["action"] == "auto_merge"
+    assert any("no CI configured" in x for x in r["reasons"])
