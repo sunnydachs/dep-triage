@@ -121,7 +121,7 @@ summary: {"auto_merge": 6, "comment_rebase": 1, "escalate": 4}
 
 - エコシステムごとのセキュリティアドバイザリ照合は未実装（major リスクの抑止は semver ベースのみ）
 - auto-merge は GitHub のネイティブ auto-merge を有効化します: branch protection の要件を満たした時点で GitHub 側がマージします。branch protection 無しのリポジトリでは、CI が緑になった瞬間に依存のみの patch/minor PR がマージされるため、本ツールとは branch protection の併用を推奨します
-- "Bump X from A to B" 形式でないタイトルは `unknown` として escalate されます
+- "Bump X from A to B" 形式でないタイトルは `unknown` として escalate されます。**grouped updates**（`dependabot.yml` の groups 設定による `Bump foo and bar from 1.0.0 to 2.0.0` 形式）もこれに該当します。誤マージはせず人間確認に回る安全側の挙動ですが、自動仕分けはされません
 - CI が無いリポジトリでは、patch/minor PR が auto-merge 候補になります（待つものが無いため）。escalate のみにしたい場合は `auto_merge_bumps = []` としてください
 
 ## 開発

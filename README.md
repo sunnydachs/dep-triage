@@ -121,7 +121,7 @@ The requirements that shaped this tool come from patterns repeatedly reported by
 
 - Security-advisory matching per ecosystem is not implemented (major-risk gating is semver-based only)
 - Auto-merge enables GitHub's native auto-merge: it merges once branch protection requirements pass. On repos without branch protection, dependency-only patch/minor PRs merge as soon as CI is green — use branch protection together with this tool
-- Titles not in the "Bump X from A to B" format are escalated as `unknown`
+- Titles not in the "Bump X from A to B" format are escalated as `unknown` — this includes **grouped updates** (`Bump foo and bar from 1.0.0 to 2.0.0`, enabled via `groups` in `dependabot.yml`). These fail safe: escalated to a human, never mis-merged — but they are not triaged automatically
 - On repos with no CI, patch/minor PRs become auto-merge candidates (nothing to wait for). Set `auto_merge_bumps = []` if you want escalation-only behavior
 
 ## Development
