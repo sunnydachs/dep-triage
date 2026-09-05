@@ -71,6 +71,7 @@ def collect_facts(prs: list, api, policy: dict, now: datetime = None) -> list:
             "package": item["info"]["package"],
             "ci_green": ci["ci_green"],
             "ci_pending": ci["ci_pending"],
+            "ci_none": ci.get("ci_none", False),
             "conflicting": pr.get("mergeable_state") == "dirty",
             "superseded_by": item["superseded_by"],
             "stale_days": _stale_days(pr, now),
