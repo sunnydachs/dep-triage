@@ -70,6 +70,10 @@ def decide(facts: dict, policy: dict) -> dict:
         reasons.append("contains non-dependency files")
         return _out("skip", reasons)
 
+    if facts.get("merge_state_pending"):
+        reasons.append("mergeable state is still being computed by GitHub")
+        return _out("skip", reasons)
+
     if facts.get("conflicting"):
         reasons.append("merge conflicts with base branch")
         return _out("escalate", reasons)
