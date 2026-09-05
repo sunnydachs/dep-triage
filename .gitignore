@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+dep-triage.toml
+__pycache__/
+*.egg-info/

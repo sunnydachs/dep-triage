@@ -1,0 +1,21 @@
+# dep-triage policy example — copy to your repo root as dep-triage.toml
+# All keys are optional; anything omitted falls back to the safe defaults below.
+
+# Semver levels eligible for auto-merge once CI is green.
+auto_merge_bumps = ["patch", "minor"]
+
+# Levels that are NEVER auto-merged (win over auto_merge_bumps).
+never_auto_merge_bumps = ["major"]
+
+# Hard requirements for auto-merge (keep both true for safety).
+require_ci_green = true
+require_dependency_only = true
+
+# Close an open PR when a newer-version PR for the same package exists.
+close_superseded = true
+
+# Suggest "@dependabot rebase" when a PR has been open this many days.
+rebase_stale_days = 7
+
+# Merge method used when enabling auto-merge: merge | squash | rebase
+merge_method = "squash"
