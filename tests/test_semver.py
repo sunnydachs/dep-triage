@@ -69,3 +69,30 @@ def test_is_newer_and_conservative():
     assert is_newer("1.2.3", "1.3.0") is True
     assert is_newer("1.3.0", "1.2.3") is False
     assert is_newer("garbage", "1.0") is False  # 解釈不能は保守側（False）
+
+
+# ── grouped updates / 複数依存（issue #1 対応） ──
+
+def test_parse_grouped_summary_official_format():
+    r = parse_bump("Bump the npm_and_yarn group with 8 updates")
+    assert r["package"] == "the npm_and_yarn group"
+    assert r["bump"] == "unknown"
+    assert r["grouped"] is True
+
+
+def test_parse_grouped_summary_variants():
+    assert parse_bump("Bump the monthly-batch group with 10 updates")["grouped"] is True
+    assert parse_bump("Bump the types-dependencies group in /client with 1 update")["grouped"] is True
+    r = parse_bump("Bump the dev group across 3 directories with 22 updates")
+    assert r["grouped"] is True
+    assert r["package"] == "the dev group"
+
+
+def test_parse_multi_package_takes_highest_level():
+    r = parse_bump("Bump actions/checkout from 3 to 4 and actions/cache from 4.0.0 to 4.1.0")
+    assert r["bump"] == "major"      # major が1つでもあれば conservative に major
+    assert r["packages"] == ["actions/checkout", "actions/cache"]
+    r2 = parse_bump("Bump a from 1.0.0 to 1.0.1 and b from 2.0.0 to 2.0.1")
+    assert r2["bump"] == "patch"
+    r3 = parse_bump("Bump a from 1.0.0 to 1.1.0 and b from 2.0.0 to 2.0.1")
+    assert r3["bump"] == "minor"
