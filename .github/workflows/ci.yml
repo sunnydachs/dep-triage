@@ -11,9 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14" ]
     steps:
     - uses: actions/checkout@v7
+    - name: Check the matrix versions are still supported
+      run: python3 scripts/check_runtimes.py
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v7
       with:
