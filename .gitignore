@@ -5,3 +5,11 @@ __pycache__/
 dep-triage.toml
 __pycache__/
 *.egg-info/
+
+# Demo-video render intermediates (regenerated from demo_manifest.json).
+# 251 MB of PNG frames and the TTS wav cache had accumulated untracked here, so
+# a single `git add -A` would have committed them.
+frames/
+wav-cache/
+dist_demo.srt
+dist_demo.vtt
